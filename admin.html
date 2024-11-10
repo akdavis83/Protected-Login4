@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Area</title>
+</head>
+<body>
+    <div style="text-align: center;">
+        <h1>Welcome to the Admin Area</h1>
+    <p>If you are seeing this, you are authenticated.</p>
+    </div>
+    
+
+    <script>
+      async function decryptWithAESKey(aesKey, encryptedData) {
+    const { iv, data } = JSON.parse(encryptedData);
+    const ivArray = new Uint8Array(iv);
+    const dataArray = new Uint8Array(data);
+
+    const decryptedData = await crypto.subtle.decrypt(
+        {
+            name: "AES-GCM",
+            iv: ivArray,
+        },
+        aesKey,
+        dataArray
+    );
+
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedData);
+}
+
+async function validateAccess() {
+    // Retrieve userHash from URL fragment and sessionStorage
+    const urlHash = window.location.hash.substring(1);
+    const sessionUserHash = sessionStorage.getItem("userHash");
+
+    if (urlHash !== sessionUserHash) {
+        alert("Unauthorized access. Redirecting to login.");
+        window.location.href = "login.html";
+        return;
+    }
+
+    // Retrieve encrypted token and re-derive AES key using userHash
+    const encryptedToken = sessionStorage.getItem("encryptedToken");
+    if (!encryptedToken) {
+        alert("Session expired. Redirecting to login.");
+        window.location.href = "login.html";
+        return;
+    }
+
+    // Derive the AES key from the sessionUserHash
+    const hashBuffer = await generateSHA256Hash(sessionUserHash);
+    const aesKey = await deriveAESKeyFromHash(hashBuffer);
+
+    // Decrypt and validate the session token
+    const decryptedToken = await decryptWithAESKey(aesKey, encryptedToken);
+    if (decryptedToken === "adminToken") {
+        console.log("Access granted.");
+    } else {
+        alert("Unauthorized access. Redirecting to login.");
+        window.location.href = "login.html";
+    }
+}
+
+// Run validation on page load
+validateAccess();
+
+
+    </script>
+</body>
+</html>
